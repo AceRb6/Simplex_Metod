@@ -1,0 +1,21 @@
+<!-- templates/resultado.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultado Simplex</title>
+</head>
+<body>
+    <h1>✅ Resultado del Método Simplex</h1>
+    <pre id="result">Cargando...</pre>
+
+    <script>
+        const resultData = sessionStorage.getItem('simplex_result');
+        if (resultData) {
+            document.getElementById("result").textContent = resultData;
+        } else {
+            document.getElementById("result").textContent = "No hay datos disponibles.";
+        }
+    </script>
+</body>
+</html>

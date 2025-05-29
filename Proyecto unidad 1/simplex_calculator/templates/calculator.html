@@ -1,0 +1,291 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calculadora Simplex - Estilo Futurista</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 40px auto;
+            max-width: 900px;
+            padding: 20px;
+        }
+
+        h1, h3 {
+            color: #ff2e63;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #ccc;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 8px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #1f1f1f;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: #ff2e63;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-top: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #e02656;
+            box-shadow: 0 0 10px #ff2e63, 0 0 20px #ff2e63;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .radio-option {
+            background-color: #1f1f1f;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .radio-option.selected {
+            background-color: #ff2e63;
+            color: white;
+        }
+
+        div {
+            margin-bottom: 10px;
+        }
+
+        sub {
+            color: #aaa;
+        }
+
+        pre {
+            background-color: #1f1f1f;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🧮 Calculadora del Método Simplex</h1>
+
+    <!-- Paso 1: Tipo de problema -->
+    <label>Tipo de Problema:</label>
+    <div class="radio-group" id="problemType">
+        <div class="radio-option" data-value="1">Maximizar</div>
+        <div class="radio-option" data-value="0">Minimizar</div>
+    </div>
+
+    <!-- Paso 2: Número de variables -->
+    <label for="num_vars">🔢 Número de variables:</label>
+    <input type="number" id="num_vars" min="1" value="2">
+    <button onclick="generateObjectiveFunction()">Generar Función Objetivo</button>
+
+    <div id="objective_function"></div>
+
+    <!-- Paso 3: Número de restricciones -->
+    <label for="num_restr">🛡️ Número de restricciones:</label>
+    <input type="number" id="num_restr" min="1" value="1">
+    <button onclick="generateConstraints()">Generar Restricciones</button>
+
+    <div id="constraints"></div>
+
+    <!-- Paso 4: Condiciones de no negatividad -->
+    <button onclick="generateVariableBounds()">🔧 Establecer Límites de Variables</button>
+    <div id="variable_bounds"></div>
+
+    <!-- Botón final -->
+    <button onclick="submitData()">🚀 Resolver con Simplex</button>
+
+    <!-- Espacio para mostrar el JSON generado -->
+    <h3>📄 JSON Generado:</h3>
+    <pre id="json_output">Esperando datos...</pre>
+
+    <script>
+        // Manejo de selección de tipo de problema
+        const radioOptions = document.querySelectorAll('.radio-option');
+        let problemType = 1; // default: maximizar
+
+        radioOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                radioOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                problemType = parseInt(option.getAttribute('data-value'));
+            });
+        });
+
+        function generateObjectiveFunction() {
+            const n = parseInt(document.getElementById("num_vars").value);
+            const container = document.getElementById("objective_function");
+            container.innerHTML = "<h3>🎯 Función Objetivo:</h3>";
+
+            let html = "Coeficientes: ";
+            for (let i = 1; i <= n; i++) {
+                html += `<input type="number" step="1" name="coef_obj_${i}" placeholder="0"> x<sub>${i}</sub>`;
+                if (i < n) html += " + ";
+            }
+            container.innerHTML = html;
+        }
+
+        function generateConstraints() {
+            const n_vars = parseInt(document.getElementById("num_vars").value);
+            const n_res = parseInt(document.getElementById("num_restr").value);
+            const container = document.getElementById("constraints");
+            container.innerHTML = "<h3>🔐 Restricciones:</h3>";
+        
+            let html = "";
+            for (let r = 1; r <= n_res; r++) {
+                html += `<div>Restricción ${r}: `;
+                for (let v = 1; v <= n_vars; v++) {
+                    html += `<input type="number" step="1" name="coef_r${r}_v${v}" placeholder="0"> x<sub>${v}</sub>`;
+                    if (v < n_vars) html += " + ";
+                }
+                html += `
+                    <select name="sign_r${r}">
+                        <option value="<=">≤</option>
+                        <option value=">=">≥</option>
+                        <option value="=">=</option>
+                    </select>
+                    <input type="number" step="1" name="res_val_${r}" placeholder="0">
+                </div>`;
+            }
+        
+            container.innerHTML = html;
+        }
+
+        function generateVariableBounds() {
+            const n = parseInt(document.getElementById("num_vars").value);
+            const container = document.getElementById("variable_bounds");
+            container.innerHTML = "<h3>📏 Límites de Variables:</h3>";
+
+            let html = "";
+            for (let i = 1; i <= n; i++) {
+                html += `<div>x<sub>${i}</sub>: 
+                    Mínimo: <input type="number" step="1" name="min_x${i}" value="0"> 
+                    Máximo: <input type="number" step="1" name="max_x${i}" value="∞">
+                </div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function submitData() {
+            const numVars = parseInt(document.getElementById("num_vars").value);
+            const numRes = parseInt(document.getElementById("num_restr").value);
+        
+            const objCoefficients = [];
+            for (let i = 1; i <= numVars; i++) {
+                const val = parseFloat(document.querySelector(`input[name='coef_obj_${i}']`)?.value || 0);
+                objCoefficients.push(val);
+            }
+        
+            const constraints = [];
+            for (let r = 1; r <= numRes; r++) {
+                const row = [];
+                for (let v = 1; v <= numVars; v++) {
+                    const val = parseFloat(document.querySelector(`input[name='coef_r${r}_v${v}']`)?.value || 0);
+                    row.push(val);
+                }
+        
+                const sign = document.querySelector(`select[name='sign_r${r}']`)?.value;
+                const rhs = parseFloat(document.querySelector(`input[name='res_val_${r}']`)?.value || 0);
+        
+                // Guardamos [coeficientes, signo, RHS]
+                constraints.push({
+                    coefficients: row,
+                    operator: sign,
+                    rhs: rhs
+                });
+            }
+        
+            const domain = [];
+            for (let i = 1; i <= numVars; i++) {
+                const min = parseFloat(document.querySelector(`input[name='min_x${i}']`)?.value || 0);
+                const max = document.querySelector(`input[name='max_x${i}']`)?.value === "∞" ? Infinity : parseFloat(document.querySelector(`input[name='max_x${i}']`)?.value || 0);
+                domain.push([min, max]);
+            }
+        
+            const jsonData = {
+                num_vars: numVars,
+                objective_coefficients: objCoefficients,
+                problem_type: problemType,
+                constraints: constraints,
+                variable_domain: domain
+            };
+        
+            // Mostrar el JSON
+            document.getElementById("json_output").textContent = JSON.stringify(jsonData, null, 2);
+            
+        
+            alert("Datos listos. Puedes ver el JSON abajo.");
+            fetch('/solve_simplex/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')  // Necesario para proteger la petición POST en Django
+                },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();  // O response.text() si devuelves HTML
+            })
+            .then(data => {
+                console.log('Respuesta del servidor:', data);
+            
+                // Opcional: Guardar temporalmente el resultado en sessionStorage
+                sessionStorage.setItem('simplex_result', JSON.stringify(data));
+            
+                // Redirigir a la página de resultados
+                window.location.href = '/resultado/';
+            })
+            .catch(error => {
+                console.error('Error al enviar los datos:', error);
+                alert('Hubo un error al enviar los datos al servidor.');
+            });
+        }
+        
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
